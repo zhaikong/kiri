@@ -18,3 +18,5 @@
 CLAUDE.md
 CLAUDE.local.md
 .claude/
+config.bat
+node_modules

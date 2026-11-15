@@ -12,6 +12,11 @@ double quote (the words go into HTML attributes).
     python3 scripts/i18n-check.py            # check
     python3 scripts/i18n-check.py --missing  # print the keys a file lacks, as JSON
 """
+import utils.net
+import utils.clients
+import utils.http_session
+import utils.transport
+import utils.session
 import json, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

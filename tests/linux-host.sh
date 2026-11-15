@@ -110,6 +110,14 @@ t clean-stop-setup "ok" "docker run -d --name cs alpine sleep 1d >/dev/null && e
 $D restart -t 20 "$N" >/dev/null; up
 if $D logs "$N" 2>&1 | grep -q 'stopped unexpectedly'; then FAIL=$((FAIL + 1)); echo "  FAIL clean-stop-not-error: $($D logs "$N" 2>&1 | grep 'stopped unexpectedly' | head -1)"; else PASS=$((PASS + 1)); fi
 t clean-stop-cleanup "cs" "docker rm -f cs"
+# The VM (here the agent, kiri-init under the daemon) dies with nobody asking
+# (#50): `always` and `unless-stopped` come back by themselves, with no
+# request to boot a new one; no policy, or a `docker stop`, stays down.
+t crash-setup "ok" "for p in always unless-stopped no; do docker run -d --name cr-\$p --restart \$p alpine sleep 1d >/dev/null; done; docker run -d --name cr-user --restart always alpine sleep 1d >/dev/null; docker stop -t 0 cr-user >/dev/null && echo ok"
+t crash-kill "killed" "kill -9 \$(ps -o pid,ppid,comm | awk '\$2 == 1 && \$3 == \"kiri-init\" {print \$1}') && echo killed"
+t crash-recovers "cr-always=true cr-unless-stopped=true cr-no=false cr-user=false" "sleep 4; for c in cr-always cr-unless-stopped cr-no cr-user; do printf '%s=%s ' \$c \$(docker inspect -f '{{.State.Running}}' \$c); done"
+t crash-restart-count "1 1" "echo \$(docker inspect -f '{{.RestartCount}}' cr-always cr-unless-stopped)"
+t crash-cleanup "cr-always" "docker rm -f cr-always cr-unless-stopped cr-no cr-user"
 $D rm -f "$N" >/dev/null
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

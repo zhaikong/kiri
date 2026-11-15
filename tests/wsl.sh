@@ -48,6 +48,13 @@ t network-dns "PONG" "docker network create wn >/dev/null 2>&1; docker run -d --
 t volume "kept" "docker run --rm -v wv:/d alpine sh -c 'echo kept > /d/f' && docker run --rm -v wv:/d alpine cat /d/f"
 t seccomp "Seccomp:	2" "docker run --rm alpine grep Seccomp: /proc/self/status"
 t cleanup "web" "docker rm -f web db"
+# The agent (kiri-init under the daemon) dies with nobody asking (#50):
+# `always` and `unless-stopped` come back by themselves; no policy, or a
+# `docker stop`, stays down.
+t crash-setup "ok" "for p in always unless-stopped no; do docker run -d --name cr-\$p --restart \$p alpine sleep 1d >/dev/null; done; docker run -d --name cr-user --restart always alpine sleep 1d >/dev/null; docker stop -t 0 cr-user >/dev/null && echo ok"
+if $D exec kiri-wsl sh -c 'kill -9 $(pgrep -x -P "$(pgrep -xo kiri)" kiri-init)'; then PASS=$((PASS + 1)); else FAIL=$((FAIL + 1)); echo "  FAIL crash-kill: no agent to kill"; fi
+t crash-recovers "cr-always=true cr-unless-stopped=true cr-no=false cr-user=false" "sleep 4; for c in cr-always cr-unless-stopped cr-no cr-user; do printf '%s=%s ' \$c \$(docker inspect -f '{{.State.Running}}' \$c); done"
+t crash-cleanup "cr-always" "docker rm -f cr-always cr-unless-stopped cr-no cr-user"
 $D rm -f kiri-wsl kiri-wsl-cli >/dev/null
 $D volume rm kiri-wsl-run kiri-wsl-lib kiri-wsl-store >/dev/null 2>&1
 echo "$PASS passed, $FAIL failed"
